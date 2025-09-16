@@ -1,1 +1,160 @@
 
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      font-family: sans-serif; background-color: #fff;
+    }
+    model-viewer {
+      display: block; width: 100%;
+      height: calc(100vh - 120px);
+      background: #f7f7f7;
+    }
+    #audio-container {
+      position: fixed; bottom: 0; left: 0; width: 100%;
+      background-color: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      z-index: 10; padding: 10px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    }
+    .audio-header { display: flex; justify-content: center; align-items: center; gap: 16px; }
+    .audio-header h2 { margin: 0; font-size: 14px; color: #333; }
+    .ar-link { font-size: 14px; color: #2c3e50; text-decoration: underline; cursor: pointer; }
+    .ar-link:hover { color: #1a252f; }
+    #narration { width: 90%; max-width: 600px; }
+
+    /* モーダル */
+    #ar-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #ar-modal .box {
+      min-width: 260px; max-width: 86vw;
+      background: #fff; color: #333;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      padding: 20px 22px; text-align: center; line-height: 1.6;
+    }
+
+    /* スピナー */
+    .spinner {
+      margin: 0 auto 16px;
+      width: 48px; height: 48px;
+      border: 4px solid #ccc;
+      border-top-color: #2c3e50;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #ar-message {
+      font-size: 14px; color: #333;
+      min-height: 3em; display: flex;
+      align-items: center; justify-content: center;
+    }
+
+    #ar-modal .actions { margin-top: 14px; }
+    #ar-close {
+      font-size: 13px; color: #2c3e50; text-decoration: underline; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- モデルビューア -->
+  <model-viewer
+    id="viewer"
+    src="./Hyakumannsan_mod_eyeback.glb"
+    ios-src="./hyakumannsan.usdz"
+    ar
+    ar-modes="scene-viewer webxr quick-look"
+    ar-placement="floor"
+    auto-rotate
+    camera-controls
+    alt="AsianBlackBear">
+  </model-viewer>
+
+  <!-- モーダル -->
+  <div id="ar-modal" role="dialog" aria-modal="true" aria-label="AR起動中">
+    <div class="box">
+      <div class="spinner"></div>
+      <div id="ar-message"></div>
+      <div class="actions"><span id="ar-close">閉じる</span></div>
+    </div>
+  </div>
+
+  <!-- オーディオガイド -->
+  <div id="audio-container">
+    <div class="audio-header">
+      <span class="ar-link" onclick="openAR()">ARひゃくまんさんと写真を撮る</span>
+    </div>
+  </div>
+
+  <script>
+    const viewer = document.getElementById('viewer');
+    const modal  = document.getElementById('ar-modal');
+    const closeBtn = document.getElementById('ar-close');
+    const msgEl = document.getElementById('ar-message');
+
+    const messages = [
+      "ARを起動中",
+      "3Dアセットを読み込んでいます",
+      "まもなくARが起動します",
+      "AR体験中は周囲に十分ご注意ください"
+    ];
+    let msgIndex = 0;
+    let msgTimer = null;
+
+    function cycleMessages() {
+      msgEl.textContent = messages[msgIndex];
+      msgIndex = (msgIndex + 1) % messages.length;
+      msgTimer = setTimeout(cycleMessages, 5000); // 5秒ごとに切替
+    }
+
+    function showARModal() {
+      modal.style.display = 'flex';
+      msgIndex = 0;
+      clearTimeout(msgTimer);
+      cycleMessages();
+    }
+
+    function hideARModal() {
+      modal.style.display = 'none';
+      clearTimeout(msgTimer);
+    }
+
+    // AR開始・失敗・外部アプリ遷移を検知して閉じる
+    viewer.addEventListener('ar-status', (e) => {
+      const s = e.detail?.status;
+      if (s === 'session-started' || s === 'failed') hideARModal();
+    });
+    viewer.addEventListener('quick-look-button-tapped', hideARModal);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') hideARModal();
+    });
+
+    closeBtn.addEventListener('click', hideARModal);
+
+    async function openAR() {
+      showARModal();
+      try {
+        await viewer.activateAR();
+      } catch (e) {
+        console.warn('AR起動に失敗:', e);
+        hideARModal();
+      }
+    }
+    window.openAR = openAR;
+  </script>
+</body>
+</html>
